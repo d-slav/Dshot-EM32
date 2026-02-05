@@ -28,31 +28,31 @@ set(PICO_BOARD seeed_xiao_rp2040 CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(pio_blink C CXX ASM)
+project(Dshot_EM32 C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(pio_blink)
+add_executable(Dshot_EM32)
 
 #                      ${PROJECT_NAME}
-pico_generate_pio_header(pio_blink ${CMAKE_CURRENT_LIST_DIR}/dshot_rx.pio )
+pico_generate_pio_header(Dshot_EM32 ${CMAKE_CURRENT_LIST_DIR}/dshot_rx.pio )
 
 # by default the header is generated into the build dir
-#//pico_generate_pio_header(pio_blink ${CMAKE_CURRENT_LIST_DIR}/blink.pio)
+#//pico_generate_pio_header(Dshot_EM32 ${CMAKE_CURRENT_LIST_DIR}/blink.pio)
 # however, alternatively you can choose to generate it somewhere else (in this case in the source tree for check in)
-#pico_generate_pio_header(pio_blink ${CMAKE_CURRENT_LIST_DIR}/blink.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR})
+#pico_generate_pio_header(Dshot_EM32 ${CMAKE_CURRENT_LIST_DIR}/blink.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-target_sources(pio_blink PRIVATE 
-    blink.c 
+target_sources(Dshot_EM32 PRIVATE 
+    Dshot_EM32.c 
     KissTelemetry.c
 #    AD.c
     )
 
 
-target_link_libraries(pio_blink PRIVATE 
+target_link_libraries(Dshot_EM32 PRIVATE 
     pico_stdlib 
     hardware_pio 
     hardware_uart 
@@ -62,9 +62,9 @@ target_link_libraries(pio_blink PRIVATE
     )
 
 # enable usb output, disable uart output
-pico_enable_stdio_usb(pio_blink 1)
-pico_enable_stdio_uart(pio_blink 0)
+pico_enable_stdio_usb(Dshot_EM32 1)
+pico_enable_stdio_uart(Dshot_EM32 0)
 
-pico_add_extra_outputs(pio_blink)
+pico_add_extra_outputs(Dshot_EM32)
 
 # add url via pico_set_program_url
