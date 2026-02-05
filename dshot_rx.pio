@@ -1,0 +1,48 @@
+.pio_version 0
+.program dshot_rx
+
+.wrap_target
+    //////////////////////////
+    set x 0	
+L_LOOP:
+    jmp pin L_END   ;1
+    jmp x-- L_NO    ;2
+L_NO:
+	jmp L_LOOP      ;3
+L_END:
+    nop
+    mov isr, x
+    push
+
+    //////////////////////////
+    set x 0
+H_LOOP:
+    jmp pin H_DEC   ;1
+    jmp H_END
+H_DEC:
+    jmp x-- H_NO    ;2
+H_NO:
+	jmp H_LOOP      ;3
+H_END:
+    mov isr, x
+    push
+    //////////////////////////    
+.wrap
+/*
+.program dshot_tx
+;    set pindirs, 1
+.wrap_target
+	set pins, 1
+	set pins, 0
+.wrap
+*/
+//% c-sdk {
+//void dshot_rx_program_init(PIO pio, uint sm, uint offset, uint pin) 
+//{
+   //pio_gpio_init(pio, pin);
+   //pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true);
+   //pio_sm_config c = blink_program_get_default_config(offset);
+   //sm_config_set_set_pins(&c, pin, 1);
+   //pio_sm_init(pio, sm, offset, &c);
+//}
+//%}
