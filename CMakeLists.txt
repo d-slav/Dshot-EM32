@@ -25,6 +25,12 @@ endif()
 # ====================================================================================
 set(PICO_BOARD seeed_xiao_rp2040 CACHE STRING "Board type")
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_definitions(DEBUG)
+else()
+    add_compile_definitions(NDEBUG)
+endif()
+
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
@@ -63,8 +69,14 @@ target_link_libraries(Dshot_EM32 PRIVATE
     )
 
 # enable usb output, disable uart output
-pico_enable_stdio_usb(Dshot_EM32 1)
-pico_enable_stdio_uart(Dshot_EM32 0)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    pico_enable_stdio_usb(Dshot_EM32 1)
+    pico_enable_stdio_uart(Dshot_EM32 0)
+else()
+    pico_enable_stdio_usb(Dshot_EM32 0)
+    pico_enable_stdio_uart(Dshot_EM32 0)
+endif()
+
 
 pico_add_extra_outputs(Dshot_EM32)
 

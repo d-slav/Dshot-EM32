@@ -10,7 +10,7 @@
 #define UART_TX_PIN 0
 #define UART_RX_PIN 1
 #define UART_BAUD 115200
-#define FRAME_GAP_US 2000
+#define FRAME_GAP_US 1500
 
 static int dma_chan;
 static dma_channel_config cfg;
@@ -18,9 +18,10 @@ kiss_telem_t kiss_telem;
 ringbuf_t uart_rx;
 critical_section_t struct_cs;
 volatile bool frame_timeout = false;
-volatile uint64_t last_rx_time, comp_rx_time;
-//volatile alarm_id_t alarm_id = -1;
 volatile bool alarm = false;
+#ifdef DEBUG
+volatile uint64_t last_rx_time, comp_rx_time;
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 static int64_t uart_tx_done_cb(alarm_id_t id, void *user_data)
@@ -59,14 +60,11 @@ static int64_t uart_tx_start_cb(alarm_id_t id, void *user_data)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 int64_t frame_timeout_cb(alarm_id_t id, void *user_data)
 {
+#ifdef DEBUG
     comp_rx_time = time_us_64();
-    //if (comp_rx_time > last_rx_time &&
-    //   (comp_rx_time - last_rx_time) >= (FRAME_GAP_US - 5))
-    //{
-        alarm = false;
-        //alarm_id = -1;
-        frame_timeout = true;
-    //}
+#endif    
+    alarm = false;
+    frame_timeout = true;
     return 0;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -82,14 +80,15 @@ void __isr uart_rx_irq(void)
             uart_rx.head = next;
         }
     }
-    //if(alarm_id <= 0)
+
     if(!alarm)
     {
-        alarm = true;
+#ifdef DEBUG        
         last_rx_time = time_us_64();
+#endif        
+        alarm = true;
         add_alarm_in_us(FRAME_GAP_US, frame_timeout_cb, NULL, false);        
     }
-   //frame_timeout = true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -178,35 +177,26 @@ void KissLoop(void)
     {
         // konec ramce
         frame_timeout = false;
-
-        //printf("%d---%d\n", uart_rx.head, uart_rx.tail);
-
-        //while (true)
-        {
-            while (uart_rx.head != uart_rx.tail) 
-            {
-                uint8_t ch = uart_rx.buf[uart_rx.tail];
-                uart_rx.tail = RB_NEXT(uart_rx.tail);
-                printf("%c", ch);
-
-            }            
-        }
         
-        printf("- %lld - %lld = %lld\n", comp_rx_time, last_rx_time, comp_rx_time - last_rx_time);
-        
-        /*char buf[sizeof(kiss_telem)];
+        char buf[sizeof(kiss_telem)];
 
         int cnt = 0;
         while(uart_rx.head != uart_rx.tail && cnt < sizeof(kiss_telem))
         {
             buf[cnt++] = uart_rx.buf[uart_rx.tail];
             uart_rx.tail = RB_NEXT(uart_rx.tail);
-        }*/
+        }
 
-        /*if(cnt == sizeof(kiss_telem))
+        if(cnt == sizeof(kiss_telem))
         {
             // prisel cely ramec
             kiss_telem_t *p_new_kiss_telem = (kiss_telem_t*)buf;
+            //p_new_kiss_telem->rpm = __builtin_bswap16(p_new_kiss_telem->rpm);
+            p_new_kiss_telem->voltage = __builtin_bswap16(p_new_kiss_telem->voltage);
+            p_new_kiss_telem->current = __builtin_bswap16(p_new_kiss_telem->current);
+            p_new_kiss_telem->capacity = __builtin_bswap16(p_new_kiss_telem->capacity);
+
+
             printf("%d, %d, %d\n", p_new_kiss_telem->voltage, p_new_kiss_telem->current, p_new_kiss_telem->capacity);
 
             //critical_section_enter_blocking(&struct_cs);
@@ -221,7 +211,7 @@ void KissLoop(void)
         else
         {
             printf("cnt = %d\n", cnt);
-        }*/
+        }
 
     }
 }
