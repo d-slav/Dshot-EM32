@@ -5,6 +5,7 @@
 #include "hardware/clocks.h"
 #include "dshot_rx.pio.h"
 #include "KissTelemetry.h"
+#include "Dshot.h"
 //#include "AD.h"
 
 #define DSHOT_PIN  3
