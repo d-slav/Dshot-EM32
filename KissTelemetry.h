@@ -15,7 +15,7 @@ typedef struct __attribute__((packed))
     uint8_t  crc;
 } kiss_telem_t;
 
-extern kiss_telem_t kiss_telem;
+//extern kiss_telem_t kiss_telem;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 #define UART_RX_BUF_SIZE 256

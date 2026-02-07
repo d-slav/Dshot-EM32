@@ -14,8 +14,6 @@ uint16_t cnt = 0;
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 void dshot_init(void)
 {
-    gpio_pull_up(DSHOT_PIN);
-
     uint offset_rx = pio_add_program(pio, &dshot_rx_program);
     uint sm_rx = pio_claim_unused_sm(pio, true);
     dshot_rx_init(pio, sm_rx, offset_rx, DSHOT_PIN);    
@@ -23,7 +21,6 @@ void dshot_init(void)
     /*uint offset_tx = pio_add_program(pio, &dshot_tx_program);
     uint sm_tx = pio_claim_unused_sm(pio, true);
     dshot_tx_init(pio, sm_tx, offset_tx, 27); */
-
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -98,6 +95,10 @@ void dshot_tx_init(PIO pio, uint sm, uint offset, uint pin)
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 void dshot_rx_init(PIO pio, uint sm, uint offset, uint pin)
 {
+    gpio_init(pin);
+    gpio_set_dir(pin, GPIO_IN);
+    gpio_pull_up(pin);
+
     pio_gpio_init(pio, pin);
     pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, false);
     pio_sm_config c = dshot_rx_program_get_default_config(offset);

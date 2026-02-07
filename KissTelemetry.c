@@ -1,3 +1,4 @@
+#include "string.h"
 #include "pico/time.h"
 #include "pico/sync.h"
 #include "hardware/uart.h"
@@ -14,8 +15,9 @@
 
 static int dma_chan;
 static dma_channel_config cfg;
-kiss_telem_t kiss_telem;
+//kiss_telem_t kiss_telem;
 ringbuf_t uart_rx;
+uint8_t out_buff[sizeof(kiss_telem_t)];
 critical_section_t struct_cs;
 volatile bool frame_timeout = false;
 volatile bool alarm = false;
@@ -35,6 +37,12 @@ static int64_t uart_tx_done_cb(alarm_id_t id, void *user_data)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 static int64_t uart_tx_start_cb(alarm_id_t id, void *user_data)
 {
+    uint8_t buf[sizeof(kiss_telem_t)];
+    critical_section_enter_blocking(&struct_cs);
+    memcpy(buf, out_buff, sizeof(kiss_telem_t));
+    critical_section_exit(&struct_cs);
+
+
     gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
     gpio_set_dir(UART_TX_PIN, GPIO_OUT);
 
@@ -42,13 +50,13 @@ static int64_t uart_tx_start_cb(alarm_id_t id, void *user_data)
         dma_chan,
         &cfg,
         &uart_get_hw(UART_ID)->dr,  // WRITE: UART data register
-        &kiss_telem,                        // READ: RAM buffer
-        sizeof(kiss_telem),
+        buf, //&kiss_telem,                        // READ: RAM buffer
+        sizeof(kiss_telem_t),
         true                        // START
     );
 
     add_alarm_in_us(
-        (sizeof(kiss_telem) + 1) * 10 * 1000000 / 115200,   // spočtená doba
+        (sizeof(kiss_telem_t) + 1) * 10 * 1000000 / 115200,   // spočtená doba
         uart_tx_done_cb,
         NULL,
         false
@@ -110,12 +118,12 @@ void uart_init_kiss(void)
 {
     critical_section_init(&struct_cs);
 
-    kiss_telem.start = 0xA5;
+    /*kiss_telem.start = 0xA5;
     kiss_telem.current = 1000;
     kiss_telem.voltage = 3000;
     kiss_telem.capacity = 4000;
     kiss_telem.rpm = 5000;
-    kiss_telem.crc = CalculateCrc8((uint8_t*)&kiss_telem, sizeof(kiss_telem)-1);
+    kiss_telem.crc = CalculateCrc8((uint8_t*)&kiss_telem, sizeof(kiss_telem)-1);*/
 
     // Pin init
     gpio_pull_up(UART_TX_PIN);
@@ -178,35 +186,34 @@ void KissLoop(void)
         // konec ramce
         frame_timeout = false;
         
-        char buf[sizeof(kiss_telem)];
+        char buf[sizeof(kiss_telem_t)];
 
         int cnt = 0;
-        while(uart_rx.head != uart_rx.tail && cnt < sizeof(kiss_telem))
+        while(uart_rx.head != uart_rx.tail && cnt < sizeof(kiss_telem_t))
         {
             buf[cnt++] = uart_rx.buf[uart_rx.tail];
             uart_rx.tail = RB_NEXT(uart_rx.tail);
         }
 
-        if(cnt == sizeof(kiss_telem))
+        if(cnt == sizeof(kiss_telem_t))
         {
             // prisel cely ramec
-            kiss_telem_t *p_new_kiss_telem = (kiss_telem_t*)buf;
-            //p_new_kiss_telem->rpm = __builtin_bswap16(p_new_kiss_telem->rpm);
-            p_new_kiss_telem->voltage = __builtin_bswap16(p_new_kiss_telem->voltage);
-            p_new_kiss_telem->current = __builtin_bswap16(p_new_kiss_telem->current);
-            p_new_kiss_telem->capacity = __builtin_bswap16(p_new_kiss_telem->capacity);
+            /*kiss_telem_t *p_new_kiss_telem = (kiss_telem_t*)buf;
 
+            printf("%d, %d, %d\n", 
+                __builtin_bswap16(p_new_kiss_telem->voltage), 
+                __builtin_bswap16(p_new_kiss_telem->current), 
+                __builtin_bswap16(p_new_kiss_telem->capacity));*/
 
-            printf("%d, %d, %d\n", p_new_kiss_telem->voltage, p_new_kiss_telem->current, p_new_kiss_telem->capacity);
-
-            //critical_section_enter_blocking(&struct_cs);
-            //kiss_telem.rpm = p_new_kiss_telem->rpm;
-            //kiss_telem.crc = p_new_kiss_telem->crc;
-            //kiss_telem.start = p_new_kiss_telem->start;
-            //kiss_telem.voltage = p_new_kiss_telem->voltage;
-            //kiss_telem.current = p_new_kiss_telem->current;
-            //kiss_telem.capacity = p_new_kiss_telem->capacity;
-            //critical_section_exit(&struct_cs);
+            critical_section_enter_blocking(&struct_cs);
+            memcpy(out_buff, buf, sizeof(kiss_telem_t));
+            /*kiss_telem.rpm = p_new_kiss_telem->rpm;
+            kiss_telem.crc = p_new_kiss_telem->crc;
+            kiss_telem.start = p_new_kiss_telem->start;
+            kiss_telem.voltage = p_new_kiss_telem->voltage;
+            kiss_telem.current = p_new_kiss_telem->current;
+            kiss_telem.capacity = p_new_kiss_telem->capacity;*/
+            critical_section_exit(&struct_cs);
         }
         else
         {
