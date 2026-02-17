@@ -2,6 +2,8 @@
 #include "dshot_rx.pio.h"
 #include "Dshot.h"
 #include "KissTelemetry.h"
+#include "Dshot_EM32.h"
+#include "RingBuffer.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 PIO pio = pio0;
@@ -10,68 +12,99 @@ bool low;
 uint16_t dshot_frame;
 uint8_t bit_cnt;
 uint16_t cnt = 0;
+volatile bool event_flags = false;
+volatile uint32_t last_value;
+
+RING_BUFFER_DEF(uint32_t, rx_buf, 32);
+
+void __isr pio_irq_handler(void);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 void dshot_init(void)
 {
+    ring_buffer_init(&rx_buf);
+
     uint offset_rx = pio_add_program(pio, &dshot_rx_program);
     uint sm_rx = pio_claim_unused_sm(pio, true);
     dshot_rx_init(pio, sm_rx, offset_rx, DSHOT_PIN);    
+
+    pio_set_irq0_source_enabled(pio, pis_sm0_rx_fifo_not_empty, true);
+    irq_set_exclusive_handler(PIO0_IRQ_0, pio_irq_handler);
+    irq_set_enabled(PIO0_IRQ_0, true);
 
     /*uint offset_tx = pio_add_program(pio, &dshot_tx_program);
     uint sm_tx = pio_claim_unused_sm(pio, true);
     dshot_tx_init(pio, sm_tx, offset_tx, 27); */
 }
 
+static inline bool my_pio_sm_is_rx_fifo_empty()
+{
+    return (pio->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB + sm_rx))) != 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+static inline uint32_t my_pio_sm_get() 
+{
+    return pio->rxf[sm_rx];
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+void __isr pio_irq_handler(void)
+{
+    //gpio_xor_mask(_BV(TEST_PIN));
+    while (!my_pio_sm_is_rx_fifo_empty(pio, sm_rx)) 
+        ring_buffer_push_no_check(&rx_buf, -my_pio_sm_get(pio, sm_rx));
+    event_flags = true;
+}
+
+#define LT  (100 * FR / 125)
+#define BIT (67  * FR / 125)
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 void dshot_pool(void)
 {
-    if (!pio_sm_is_rx_fifo_empty(pio, sm_rx))
+    if (event_flags) 
     {
-        uint32_t v = pio_sm_get(pio, sm_rx);
-        //uint32_t v = pio_sm_get_blocking(pio, sm_rx);
-        uint32_t ticks = -v;
-
-        if(ticks > 100)
+        event_flags = false;
+        uint32_t ticks;
+        while(ring_buffer_pop(&rx_buf, &ticks))
         {
-            low = true;
-            bit_cnt = 0;
-            dshot_frame = 0;
-        }
-        else
-        {
-            if(low)
+            if(ticks > LT)
             {
-                if(ticks > 68)
-                    dshot_frame |= 0x0001;
-
-                if(bit_cnt < 15)
+                low = true;
+                bit_cnt = 0;
+                dshot_frame = 0;
+            }
+            else
+            {
+                if(low)
                 {
-                    bit_cnt++;
-                    dshot_frame <<= 1; 
-                }
-                else if(bit_cnt == 15)
-                {
-                    bit_cnt++;
-                    
-                    uint16_t throttle = (dshot_frame >> 5) & 0x7FF;
-                    uint16_t tel_req = (dshot_frame >> 4) & 0x1;
+                    if(ticks > BIT)
+                        dshot_frame |= 0x0001;
 
-                    //if(cnt++ >= 100)
-                    if(tel_req)
+                    if(bit_cnt < 15)
                     {
-                        cnt = 0;
-                        kiss_send_dma();
-                        //adc_create_snapshot();//adc_start();
-                        //printf("%f %f %f\n", power_snapshot.voltage_V, power_snapshot.current_A, power_snapshot.capacity_mAh/*, power_snapshot.timestamp_ms*/);
-                        printf("0x%4.4X, %d, %d\n", dshot_frame, throttle, tel_req);
+                        bit_cnt++;
+                        dshot_frame <<= 1; 
+                    }
+                    else if(bit_cnt == 15)
+                    {
+                        bit_cnt++;
+                        
+                        uint16_t throttle = (dshot_frame >> 5) & 0x7FF;
+                        uint16_t tel_req = (dshot_frame >> 4) & 0x1;
+
+                        if(tel_req)
+                        {
+                            cnt = 0;
+                            kiss_send_dma();
+                        }
                     }
                 }
+                low = !low;
             }
-            low = !low;
         }
     }
-
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////

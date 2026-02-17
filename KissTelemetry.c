@@ -4,7 +4,7 @@
 #include "hardware/uart.h"
 #include "hardware/gpio.h"
 #include "hardware/dma.h"
-
+#include "Dshot_EM32.h"
 #include "KissTelemetry.h"
 
 #define UART_ID uart0
@@ -15,15 +15,11 @@
 
 static int dma_chan;
 static dma_channel_config cfg;
-//kiss_telem_t kiss_telem;
 ringbuf_t uart_rx;
 uint8_t out_buff[sizeof(kiss_telem_t)];
 critical_section_t struct_cs;
 volatile bool frame_timeout = false;
 volatile bool alarm = false;
-#ifdef DEBUG
-volatile uint64_t last_rx_time, comp_rx_time;
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 static int64_t uart_tx_done_cb(alarm_id_t id, void *user_data)
@@ -31,6 +27,7 @@ static int64_t uart_tx_done_cb(alarm_id_t id, void *user_data)
     // přepnout pin zpět na GPIO input
     gpio_set_function(UART_TX_PIN, GPIO_FUNC_NULL);
     gpio_set_dir(UART_TX_PIN, GPIO_IN);
+    gpio_clr_mask(_BV(TEST_PIN));
     return 0; // jednorázový alarm
 }
 
@@ -42,9 +39,9 @@ static int64_t uart_tx_start_cb(alarm_id_t id, void *user_data)
     memcpy(buf, out_buff, sizeof(kiss_telem_t));
     critical_section_exit(&struct_cs);
 
-
     gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
     gpio_set_dir(UART_TX_PIN, GPIO_OUT);
+    gpio_set_mask(_BV(TEST_PIN));
 
     dma_channel_configure(
         dma_chan,
@@ -68,9 +65,6 @@ static int64_t uart_tx_start_cb(alarm_id_t id, void *user_data)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 int64_t frame_timeout_cb(alarm_id_t id, void *user_data)
 {
-#ifdef DEBUG
-    comp_rx_time = time_us_64();
-#endif    
     alarm = false;
     frame_timeout = true;
     return 0;
@@ -91,9 +85,6 @@ void __isr uart_rx_irq(void)
 
     if(!alarm)
     {
-#ifdef DEBUG        
-        last_rx_time = time_us_64();
-#endif        
         alarm = true;
         add_alarm_in_us(FRAME_GAP_US, frame_timeout_cb, NULL, false);        
     }
@@ -117,13 +108,6 @@ void uart_init_kiss_rx(void)
 void uart_init_kiss(void)
 {
     critical_section_init(&struct_cs);
-
-    /*kiss_telem.start = 0xA5;
-    kiss_telem.current = 1000;
-    kiss_telem.voltage = 3000;
-    kiss_telem.capacity = 4000;
-    kiss_telem.rpm = 5000;
-    kiss_telem.crc = CalculateCrc8((uint8_t*)&kiss_telem, sizeof(kiss_telem)-1);*/
 
     // Pin init
     gpio_pull_up(UART_TX_PIN);
@@ -186,9 +170,9 @@ void KissLoop(void)
         // konec ramce
         frame_timeout = false;
         
+        int cnt = 0;
         char buf[sizeof(kiss_telem_t)];
 
-        int cnt = 0;
         while(uart_rx.head != uart_rx.tail && cnt < sizeof(kiss_telem_t))
         {
             buf[cnt++] = uart_rx.buf[uart_rx.tail];
@@ -198,27 +182,9 @@ void KissLoop(void)
         if(cnt == sizeof(kiss_telem_t))
         {
             // prisel cely ramec
-            /*kiss_telem_t *p_new_kiss_telem = (kiss_telem_t*)buf;
-
-            printf("%d, %d, %d\n", 
-                __builtin_bswap16(p_new_kiss_telem->voltage), 
-                __builtin_bswap16(p_new_kiss_telem->current), 
-                __builtin_bswap16(p_new_kiss_telem->capacity));*/
-
-            critical_section_enter_blocking(&struct_cs);
+             critical_section_enter_blocking(&struct_cs);
             memcpy(out_buff, buf, sizeof(kiss_telem_t));
-            /*kiss_telem.rpm = p_new_kiss_telem->rpm;
-            kiss_telem.crc = p_new_kiss_telem->crc;
-            kiss_telem.start = p_new_kiss_telem->start;
-            kiss_telem.voltage = p_new_kiss_telem->voltage;
-            kiss_telem.current = p_new_kiss_telem->current;
-            kiss_telem.capacity = p_new_kiss_telem->capacity;*/
             critical_section_exit(&struct_cs);
         }
-        else
-        {
-            printf("cnt = %d\n", cnt);
-        }
-
     }
 }

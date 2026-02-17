@@ -70,7 +70,7 @@ target_link_libraries(Dshot_EM32 PRIVATE
 
 # enable usb output, disable uart output
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    pico_enable_stdio_usb(Dshot_EM32 1)
+    pico_enable_stdio_usb(Dshot_EM32 0)
     pico_enable_stdio_uart(Dshot_EM32 0)
 else()
     pico_enable_stdio_usb(Dshot_EM32 0)
