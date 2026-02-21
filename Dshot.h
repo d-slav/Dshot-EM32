@@ -3,6 +3,7 @@
 #include "hardware/pio.h"
 
 #define DSHOT_PIN  3
+#define TELEMETRY_REQUEST_BIT   0x0010            
 
 void dshot_init(void);
 void dshot_pool(void);

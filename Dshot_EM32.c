@@ -15,7 +15,7 @@
 
 int main() 
 {
-    set_sys_clock_khz(FR * 1000, true);
+    set_sys_clock_khz(MCU_FREQUENCY * 1000, true);
 
     stdio_init_all();
     sleep_ms(1000);
@@ -35,8 +35,8 @@ int main()
     //multicore_reset_core1();
 
     // Pin init
-    gpio_init_mask(_BV(LED_RED) | _BV(LED_GREEN) | _BV(LED_BLUE) | _BV(TEST_PIN));
-    gpio_set_dir_out_masked(_BV(LED_RED) | _BV(LED_GREEN) | _BV(LED_BLUE) | _BV(TEST_PIN));
+    gpio_init_mask(_BV(LED_RED) | _BV(LED_GREEN) | _BV(LED_BLUE));// | _BV(TEST_PIN3) | _BV(TEST_PIN2) | _BV(TEST_PIN1));
+    gpio_set_dir_out_masked(_BV(LED_RED) | _BV(LED_GREEN) | _BV(LED_BLUE));// | _BV(TEST_PIN3) | _BV(TEST_PIN2) | _BV(TEST_PIN1));
     gpio_set_mask(_BV(LED_RED) | _BV(LED_GREEN) | _BV(LED_BLUE));
     //gpio_put(LED_RED, false);
     //gpio_put(LED_GREEN, false);
@@ -45,7 +45,8 @@ int main()
     //while (!stdio_usb_connected()) 
     //    sleep_ms(100);
 
-    uart_init_kiss();
+    uart_init_kiss_tx();
+    uart_init_kiss_rx();
     dshot_init();
 
     //printf("ggg - %d\n", sizeof(kiss_telem));
@@ -54,7 +55,9 @@ int main()
 
     while (true)
     {
-        __wfi();
+        //gpio_clr_mask(_BV(TEST_PIN1));
+        //__wfi();
+        //gpio_set_mask(_BV(TEST_PIN1));
         //gpio_xor_mask(_BV(TEST_PIN));
         KissLoop();
         dshot_pool();

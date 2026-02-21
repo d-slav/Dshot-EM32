@@ -32,8 +32,9 @@ extern ringbuf_t uart_rx;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void KissLoop(void);
-void uart_init_kiss(void);
+void uart_init_kiss_tx(void);
 void uart_init_kiss_rx(void);
 
 void kiss_send_dma();
 uint8_t CalculateCrc8(const uint8_t *Buf, const uint8_t BufLen);
+
