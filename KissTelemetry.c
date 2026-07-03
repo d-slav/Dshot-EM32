@@ -5,7 +5,8 @@
 #include "hardware/gpio.h"
 #include "hardware/dma.h"
 #include "Dshot_EM32.h"
-#include "Dshot.h"
+//#include "Dshot.h"
+#include "ERPM.h"
 #include "KissTelemetry.h"
 
 #define UART_TX_ID uart1
@@ -161,7 +162,7 @@ uint8_t CalculateCrc8(const uint8_t *Buf, const uint8_t BufLen)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-void KissLoop(void)
+bool KissLoop(void)
 {
     if(frame_timeout)
     {
@@ -173,7 +174,7 @@ void KissLoop(void)
 
         while(uart_rx.head != uart_rx.tail && cnt < sizeof(kiss_telem_t))
         {
-            dshot_pool();
+            //dshot_pool();
             buf[cnt++] = uart_rx.buf[uart_rx.tail];
             uart_rx.tail = RB_NEXT(uart_rx.tail);
         }
@@ -184,8 +185,23 @@ void KissLoop(void)
             //gpio_set_mask(_BV(TEST_PIN1));
             critical_section_enter_blocking(&struct_cs);
             memcpy(out_buff, buf, sizeof(kiss_telem_t));
+            kiss_telem_t *telem = (kiss_telem_t *)out_buff;
+
+            // prepiseme RPM
+            uint16_t rpm = erpm_get_frequency(); 
+            out_buff[7] = (rpm >> 8) & 0xFF;
+            out_buff[8] = rpm & 0xFF;
+            
+            // znovu vypocitame CRC
+            telem->crc = CalculateCrc8(out_buff, sizeof(kiss_telem_t) - 1);
             critical_section_exit(&struct_cs);
             //gpio_clr_mask(_BV(TEST_PIN1));
+            return true;
         }
+        else
+        {
+            // ramec nebyl kompletny
+            return false;
+        }   
     }
 }

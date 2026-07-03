@@ -53,7 +53,8 @@ pico_generate_pio_header(Dshot_EM32 ${CMAKE_CURRENT_LIST_DIR}/dshot_rx.pio )
 
 target_sources(Dshot_EM32 PRIVATE 
     Dshot_EM32.c 
-    Dshot.c 
+#    Dshot.c 
+    ERPM.c
     KissTelemetry.c
 #    AD.c
     )

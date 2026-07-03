@@ -31,7 +31,7 @@ extern ringbuf_t uart_rx;
 #define RB_NEXT(i) (((i) + 1) % UART_RX_BUF_SIZE)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-void KissLoop(void);
+bool KissLoop(void);
 void uart_init_kiss_tx(void);
 void uart_init_kiss_rx(void);
 

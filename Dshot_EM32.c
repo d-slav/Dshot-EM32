@@ -1,17 +1,21 @@
 #include <stdio.h>
 #include <string.h>
-//#include "pico/stdlib.h"
 #include "hardware/clocks.h"
 #include "hardware/sync.h"
-//#include "pico/multicore.h"
 #include "KissTelemetry.h"
-#include "Dshot.h"
+//#include "Dshot.h"
+#include "ERPM.h"
 #include "Dshot_EM32.h"
 #include "hardware/pll.h"
 #include "hardware/clocks.h"
 #include "hardware/structs/pll.h"
 #include "hardware/structs/clocks.h"
 
+bool timeout_cb(__unused struct repeating_timer *t) 
+{
+    kiss_send_dma();
+    return true;
+}
 
 int main() 
 {
@@ -47,20 +51,34 @@ int main()
 
     uart_init_kiss_tx();
     uart_init_kiss_rx();
-    dshot_init();
+    //dshot_init();
+    erpm_init();
 
     //printf("ggg - %d\n", sizeof(kiss_telem));
 
     kiss_send_dma();
+	repeating_timer_t timer;
+    add_repeating_timer_ms(50, timeout_cb, NULL, &timer);
 
+    //int i = 0;
     while (true)
     {
         //gpio_clr_mask(_BV(TEST_PIN1));
         //__wfi();
         //gpio_set_mask(_BV(TEST_PIN1));
         //gpio_xor_mask(_BV(TEST_PIN));
-        KissLoop();
-        dshot_pool();
+        if(KissLoop())
+        {
+            //if(++i % 10 == 0)
+            //{
+            //    kiss_send_dma();
+            //    i = 0;
+            //}
+            //volatile uint32_t erpm = erpm_get_frequency();
+            //kiss_send_dma();
+        }
+        //dshot_pool();
+
     }    
 }
 
